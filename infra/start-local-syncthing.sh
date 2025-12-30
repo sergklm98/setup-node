@@ -19,6 +19,18 @@
 
 set -euo pipefail
 
+# Function to set value in config file
+set_value() {
+    local file="$1"
+    local key="$2"
+    local value="$3"
+    if grep -q "^$key=" "$file" 2>/dev/null; then
+        sed -i "s|^$key=.*|$key=$value|" "$file"
+    else
+        echo "$key=$value" >> "$file"
+    fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NODE_CONF="$REPO_ROOT/creds/node.conf"
@@ -169,180 +181,165 @@ if [[ -z "$SYNCTHING_API_KEY" ]]; then
         echo "✓ API key extracted from configuration"
         
         # Update node.conf with the API key
-        if grep -q "SYNCTHING_API_KEY=" "$NODE_CONF"; then
-            sed -i "s|^SYNCTHING_API_KEY=.*|SYNCTHING_API_KEY=$SYNCTHING_API_KEY|" "$NODE_CONF"
+        set_value "$NODE_CONF" "SYNCTHING_API_KEY" "$SYNCTHING_API_KEY"
+        echo "✓ API key saved to $NODE_CONF"
+    else
+        echo ""
+        echo "Warning: Could not extract API key from config.xml within $MAX_CONFIG_WAIT seconds"
+        if [[ -f "$CONFIG_XML" ]]; then
+            echo "Config file exists but API key not found. You may need to set it manually in $NODE_CONF"
         else
-            echo "SYNCTHING_API_KEY=$SYNCTHING_API_KEY" >> "$NODE_CONF"
+            echo "Config file not found at $CONFIG_XML. You may need to set the API key manually in $NODE_CONF"
         fi
-            echo "✓ API key saved to $NODE_CONF"
+    fi
+else
+    echo "Step 6: API key already configured, skipping extraction"
+fi
+
+# Test API key if available and extract device ID
+if [[ -n "$SYNCTHING_API_KEY" ]]; then
+    echo ""
+    echo "Testing API key..."
+    if curl -s -f -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/system/status" >/dev/null 2>&1; then
+        echo "✓ API key is valid and working"
+        
+        # Extract device ID from Syncthing system status
+        echo "Extracting device ID..."
+        DEVICE_ID=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/system/status" 2>/dev/null | jq -r '.myID // empty' 2>/dev/null)
+        
+        if [[ -n "$DEVICE_ID" ]] && [[ "$DEVICE_ID" != "null" ]]; then
+            echo "✓ Device ID extracted: $DEVICE_ID"
+            
+            # Update node.conf with device ID
+            set_value "$NODE_CONF" "SYNCTHING_DEVICE_ID" "$DEVICE_ID"
+            echo "✓ Device ID saved to $NODE_CONF"
         else
+            echo "⚠ Warning: Could not extract device ID from Syncthing API"
+            if ! command -v jq >/dev/null 2>&1; then
+                echo "  Note: jq is required for device ID extraction. Please install 'jq' and rerun this script."
+            fi
+        fi
+        
+        # Ask user about relay and protocol priority
+        if [[ -n "$DEVICE_ID" ]] && [[ "$DEVICE_ID" != "null" ]]; then
             echo ""
-            echo "Warning: Could not extract API key from config.xml within $MAX_CONFIG_WAIT seconds"
-            if [[ -f "$CONFIG_XML" ]]; then
-                echo "Config file exists but API key not found. You may need to set it manually in $NODE_CONF"
+            echo "Configure relay and protocol priority:"
+            echo "1) Disable relay + prioritize QUIC (for direct connections)"
+            echo "2) Enable relay + prioritize relay (for private networks)"
+            echo "3) Keep settings as is"
+            read -p "Choose option [1-3] (default: 3): " RELAY_OPTION
+            RELAY_OPTION="${RELAY_OPTION:-3}"
+            
+            if [[ "$RELAY_OPTION" == "1" ]]; then
+                echo "Configuring: Disable relay + prioritize QUIC..."
+                
+                # Get current options
+                CURRENT_OPTIONS=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/options" 2>/dev/null)
+                
+                if [[ -n "$CURRENT_OPTIONS" ]]; then
+                    # Update options: disable relay and set QUIC priority
+                    UPDATED_OPTIONS=$(echo "$CURRENT_OPTIONS" | jq '
+                        .relaysEnabled = false |
+                        .connectionPriorityQuicLan = 10 |
+                        .connectionPriorityQuicWan = 20 |
+                        .connectionPriorityTcpLan = 30 |
+                        .connectionPriorityTcpWan = 40 |
+                        .connectionPriorityRelay = 50 |
+                        .urAccepted = -1
+                    ' 2>/dev/null)
+                    
+                    if [[ -n "$UPDATED_OPTIONS" ]]; then
+                        if curl -s -X PUT -H "X-API-Key: $SYNCTHING_API_KEY" \
+                            -H "Content-Type: application/json" \
+                            -d "$UPDATED_OPTIONS" \
+                            "$SYNCTHING_API_URL/rest/config/options" >/dev/null 2>&1; then
+                            echo "✓ Relay disabled and QUIC prioritized"
+                        else
+                            echo "⚠ Warning: Failed to update Syncthing options"
+                        fi
+                    else
+                        echo "⚠ Warning: Failed to prepare options update (jq required)"
+                    fi
+                else
+                    echo "⚠ Warning: Failed to fetch current options"
+                fi
+            elif [[ "$RELAY_OPTION" == "2" ]]; then
+                echo "Configuring: Enable relay + prioritize relay..."
+                
+                # Get current options
+                CURRENT_OPTIONS=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/options" 2>/dev/null)
+                
+                if [[ -n "$CURRENT_OPTIONS" ]]; then
+                    # Update options: enable relay and set relay priority
+                    UPDATED_OPTIONS=$(echo "$CURRENT_OPTIONS" | jq '
+                        .relaysEnabled = true |
+                        .connectionPriorityRelay = 10 |
+                        .connectionPriorityTcpLan = 20 |
+                        .connectionPriorityTcpWan = 30 |
+                        .connectionPriorityQuicLan = 40 |
+                        .connectionPriorityQuicWan = 50 |
+                        .urAccepted = -1
+                    ' 2>/dev/null)
+                    
+                    if [[ -n "$UPDATED_OPTIONS" ]]; then
+                        if curl -s -X PUT -H "X-API-Key: $SYNCTHING_API_KEY" \
+                            -H "Content-Type: application/json" \
+                            -d "$UPDATED_OPTIONS" \
+                            "$SYNCTHING_API_URL/rest/config/options" >/dev/null 2>&1; then
+                            echo "✓ Relay enabled and prioritized"
+                        else
+                            echo "⚠ Warning: Failed to update Syncthing options"
+                        fi
+                    else
+                        echo "⚠ Warning: Failed to prepare options update (jq required)"
+                    fi
+                else
+                    echo "⚠ Warning: Failed to fetch current options"
+                fi
             else
-                echo "Config file not found at $CONFIG_XML. You may need to set the API key manually in $NODE_CONF"
+                echo "Keeping settings as is"
+            fi
+            
+            # Update default folder settings
+            echo ""
+            echo "Updating default folder settings..."
+            
+            # Get current defaults
+            CURRENT_DEFAULTS=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/defaults/folder" 2>/dev/null)
+            
+            if [[ -n "$CURRENT_DEFAULTS" ]]; then
+                # Update defaults: path, ignorePerms, minDiskFree
+                UPDATED_DEFAULTS=$(echo "$CURRENT_DEFAULTS" | jq '
+                    .path = "/var/syncthing/data" |
+                    .ignorePerms = true |
+                    .minDiskFree.value = 100 |
+                    .minDiskFree.unit = "MB"
+                ' 2>/dev/null)
+                
+                if [[ -n "$UPDATED_DEFAULTS" ]]; then
+                    if curl -s -X PUT -H "X-API-Key: $SYNCTHING_API_KEY" \
+                        -H "Content-Type: application/json" \
+                        -d "$UPDATED_DEFAULTS" \
+                        "$SYNCTHING_API_URL/rest/config/defaults/folder" >/dev/null 2>&1; then
+                        echo "✓ Default folder settings updated:"
+                        echo "  - Path: /var/syncthing/data"
+                        echo "  - Ignore permissions: enabled"
+                        echo "  - Min free disk space: 100 MB"
+                    else
+                        echo "⚠ Warning: Failed to update default folder settings"
+                    fi
+                else
+                    echo "⚠ Warning: Failed to prepare defaults update (jq required)"
+                fi
+            else
+                echo "⚠ Warning: Failed to fetch current default folder settings"
             fi
         fi
     else
-        echo "Step 6: API key already configured, skipping extraction"
+        echo "⚠ Warning: API key test failed. The key may be incorrect or Syncthing may not be fully initialized yet."
+        echo "  You can test manually with: curl -H \"X-API-Key: $SYNCTHING_API_KEY\" $SYNCTHING_API_URL/rest/system/status"
     fi
-    
-    # Test API key if available and extract device ID
-    if [[ -n "$SYNCTHING_API_KEY" ]]; then
-        echo ""
-        echo "Testing API key..."
-        if curl -s -f -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/system/status" >/dev/null 2>&1; then
-            echo "✓ API key is valid and working"
-            
-            # Extract device ID from Syncthing system status
-            echo "Extracting device ID..."
-            DEVICE_ID=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/system/status" 2>/dev/null | jq -r '.myID // empty' 2>/dev/null)
-            
-            if [[ -n "$DEVICE_ID" ]] && [[ "$DEVICE_ID" != "null" ]]; then
-                echo "✓ Device ID extracted: $DEVICE_ID"
-                
-                # Update node.conf with device ID
-                if grep -q "SYNCTHING_DEVICE_ID=" "$NODE_CONF"; then
-                    sed -i "s|^SYNCTHING_DEVICE_ID=.*|SYNCTHING_DEVICE_ID=$DEVICE_ID|" "$NODE_CONF"
-                else
-                    # Add after SYNCTHING_FOLDER_ID if it exists, otherwise add after SYNCTHING_API_KEY
-                    if grep -q "SYNCTHING_FOLDER_ID=" "$NODE_CONF"; then
-                        sed -i "/^SYNCTHING_FOLDER_ID=/a SYNCTHING_DEVICE_ID=$DEVICE_ID" "$NODE_CONF"
-                    elif grep -q "SYNCTHING_API_KEY=" "$NODE_CONF"; then
-                        sed -i "/^SYNCTHING_API_KEY=/a SYNCTHING_DEVICE_ID=$DEVICE_ID" "$NODE_CONF"
-                    else
-                        echo "SYNCTHING_DEVICE_ID=$DEVICE_ID" >> "$NODE_CONF"
-                    fi
-                fi
-                echo "✓ Device ID saved to $NODE_CONF"
-            else
-                echo "⚠ Warning: Could not extract device ID from Syncthing API"
-                if ! command -v jq >/dev/null 2>&1; then
-                    echo "  Note: jq is required for device ID extraction. Please install 'jq' and rerun this script."
-                fi
-            fi
-            
-            # Ask user about relay and protocol priority
-            if [[ -n "$DEVICE_ID" ]] && [[ "$DEVICE_ID" != "null" ]]; then
-                echo ""
-                echo "Configure relay and protocol priority:"
-                echo "1) Disable relay + prioritize QUIC (for direct connections)"
-                echo "2) Enable relay + prioritize relay (for private networks)"
-                echo "3) Keep settings as is"
-                read -p "Choose option [1-3] (default: 3): " RELAY_OPTION
-                RELAY_OPTION="${RELAY_OPTION:-3}"
-                
-                if [[ "$RELAY_OPTION" == "1" ]]; then
-                    echo "Configuring: Disable relay + prioritize QUIC..."
-                    
-                    # Get current options
-                    CURRENT_OPTIONS=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/options" 2>/dev/null)
-                    
-                    if [[ -n "$CURRENT_OPTIONS" ]]; then
-                        # Update options: disable relay and set QUIC priority
-                        UPDATED_OPTIONS=$(echo "$CURRENT_OPTIONS" | jq '
-                            .relaysEnabled = false |
-                            .connectionPriorityQuicLan = 10 |
-                            .connectionPriorityQuicWan = 20 |
-                            .connectionPriorityTcpLan = 30 |
-                            .connectionPriorityTcpWan = 40 |
-                            .connectionPriorityRelay = 50 |
-                            .urAccepted = -1
-                        ' 2>/dev/null)
-                        
-                        if [[ -n "$UPDATED_OPTIONS" ]]; then
-                            if curl -s -X PUT -H "X-API-Key: $SYNCTHING_API_KEY" \
-                                -H "Content-Type: application/json" \
-                                -d "$UPDATED_OPTIONS" \
-                                "$SYNCTHING_API_URL/rest/config/options" >/dev/null 2>&1; then
-                                echo "✓ Relay disabled and QUIC prioritized"
-                            else
-                                echo "⚠ Warning: Failed to update Syncthing options"
-                            fi
-                        else
-                            echo "⚠ Warning: Failed to prepare options update (jq required)"
-                        fi
-                    else
-                        echo "⚠ Warning: Failed to fetch current options"
-                    fi
-                elif [[ "$RELAY_OPTION" == "2" ]]; then
-                    echo "Configuring: Enable relay + prioritize relay..."
-                    
-                    # Get current options
-                    CURRENT_OPTIONS=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/options" 2>/dev/null)
-                    
-                    if [[ -n "$CURRENT_OPTIONS" ]]; then
-                        # Update options: enable relay and set relay priority
-                        UPDATED_OPTIONS=$(echo "$CURRENT_OPTIONS" | jq '
-                            .relaysEnabled = true |
-                            .connectionPriorityRelay = 10 |
-                            .connectionPriorityTcpLan = 20 |
-                            .connectionPriorityTcpWan = 30 |
-                            .connectionPriorityQuicLan = 40 |
-                            .connectionPriorityQuicWan = 50 |
-                            .urAccepted = -1
-                        ' 2>/dev/null)
-                        
-                        if [[ -n "$UPDATED_OPTIONS" ]]; then
-                            if curl -s -X PUT -H "X-API-Key: $SYNCTHING_API_KEY" \
-                                -H "Content-Type: application/json" \
-                                -d "$UPDATED_OPTIONS" \
-                                "$SYNCTHING_API_URL/rest/config/options" >/dev/null 2>&1; then
-                                echo "✓ Relay enabled and prioritized"
-                            else
-                                echo "⚠ Warning: Failed to update Syncthing options"
-                            fi
-                        else
-                            echo "⚠ Warning: Failed to prepare options update (jq required)"
-                        fi
-                    else
-                        echo "⚠ Warning: Failed to fetch current options"
-                    fi
-                else
-                    echo "Keeping settings as is"
-                fi
-                
-                # Update default folder settings
-                echo ""
-                echo "Updating default folder settings..."
-                
-                # Get current defaults
-                CURRENT_DEFAULTS=$(curl -s -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/defaults/folder" 2>/dev/null)
-                
-                if [[ -n "$CURRENT_DEFAULTS" ]]; then
-                    # Update defaults: path, ignorePerms, minDiskFree
-                    UPDATED_DEFAULTS=$(echo "$CURRENT_DEFAULTS" | jq '
-                        .path = "/var/syncthing/data" |
-                        .ignorePerms = true |
-                        .minDiskFree.value = 100 |
-                        .minDiskFree.unit = "MB"
-                    ' 2>/dev/null)
-                    
-                    if [[ -n "$UPDATED_DEFAULTS" ]]; then
-                        if curl -s -X PUT -H "X-API-Key: $SYNCTHING_API_KEY" \
-                            -H "Content-Type: application/json" \
-                            -d "$UPDATED_DEFAULTS" \
-                            "$SYNCTHING_API_URL/rest/config/defaults/folder" >/dev/null 2>&1; then
-                            echo "✓ Default folder settings updated:"
-                            echo "  - Path: /var/syncthing/data"
-                            echo "  - Ignore permissions: enabled"
-                            echo "  - Min free disk space: 100 MB"
-                        else
-                            echo "⚠ Warning: Failed to update default folder settings"
-                        fi
-                    else
-                        echo "⚠ Warning: Failed to prepare defaults update (jq required)"
-                    fi
-                else
-                    echo "⚠ Warning: Failed to fetch current default folder settings"
-                fi
-            fi
-        else
-            echo "⚠ Warning: API key test failed. The key may be incorrect or Syncthing may not be fully initialized yet."
-            echo "  You can test manually with: curl -H \"X-API-Key: $SYNCTHING_API_KEY\" $SYNCTHING_API_URL/rest/system/status"
-        fi
-    fi
+fi
 
 echo ""
 echo "=== Local Syncthing Setup Completed ==="

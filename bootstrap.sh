@@ -1,5 +1,6 @@
 #!/bin/bash
-# This bootstrap script orchestrates the setup of a new node by executing four key scripts in sequence:
+# This bootstrap script orchestrates the setup of a new node by executing four key scripts in sequence.
+# The script is idempotent - it can be run multiple times safely.
 # 1. infra/podman.sh - Identifies the Debian version and installs the latest Podman with Quadlet support.
 # 2. infra/network.sh - Creates a dualstack Podman network (supporting both IPv4 and IPv6).
 # 3. infra/pull-config.sh - Pulls the latest configuration files for the node via syncthing.

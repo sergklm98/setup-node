@@ -18,6 +18,18 @@ get_value() {
     grep "^$key=" "$file" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"'
 }
 
+# Function to set value in config file
+set_value() {
+    local file="$1"
+    local key="$2"
+    local value="$3"
+    if grep -q "^$key=" "$file" 2>/dev/null; then
+        sed -i "s|^$key=.*|$key=$value|" "$file"
+    else
+        echo "$key=$value" >> "$file"
+    fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NODES_DIR="$REPO_ROOT/creds/nodes"
@@ -465,20 +477,12 @@ else
     if [[ -n "$FOLDER_ID" ]]; then
         echo "✓ Syncthing folder already exists (Label: $FOLDER_LABEL, ID: $FOLDER_ID)"
         # Update node.conf with folder ID
-        if grep -q "SYNCTHING_FOLDER_ID" "$NODE_CONF"; then
-            sed -i "s|SYNCTHING_FOLDER_ID=.*|SYNCTHING_FOLDER_ID=$FOLDER_ID|" "$NODE_CONF"
-        else
-            echo "SYNCTHING_FOLDER_ID=$FOLDER_ID" >> "$NODE_CONF"
-        fi
+        set_value "$NODE_CONF" "SYNCTHING_FOLDER_ID" "$FOLDER_ID"
         
         # Read SYNCTHING_DEVICE_ID from creds/node.conf and set as SYNCTHING_TARGET_DEVICE_ID
         HOST_DEVICE_ID=$(get_value "$ROOT_NODE_CONF" "SYNCTHING_DEVICE_ID")
         if [[ -n "$HOST_DEVICE_ID" ]]; then
-            if grep -q "SYNCTHING_TARGET_DEVICE_ID" "$NODE_CONF"; then
-                sed -i "s|SYNCTHING_TARGET_DEVICE_ID=.*|SYNCTHING_TARGET_DEVICE_ID=$HOST_DEVICE_ID|" "$NODE_CONF"
-            else
-                echo "SYNCTHING_TARGET_DEVICE_ID=$HOST_DEVICE_ID" >> "$NODE_CONF"
-            fi
+            set_value "$NODE_CONF" "SYNCTHING_TARGET_DEVICE_ID" "$HOST_DEVICE_ID"
         else
             echo "Note: SYNCTHING_DEVICE_ID is not configured in creds/node.conf, skipping SYNCTHING_TARGET_DEVICE_ID"
         fi
@@ -520,20 +524,12 @@ EOF
             echo "✓ Syncthing folder created successfully (Label: $FOLDER_LABEL, ID: $FOLDER_ID)"
             
             # Update node.conf with folder ID
-            if grep -q "SYNCTHING_FOLDER_ID" "$NODE_CONF"; then
-                sed -i "s|SYNCTHING_FOLDER_ID=.*|SYNCTHING_FOLDER_ID=$FOLDER_ID|" "$NODE_CONF"
-            else
-                echo "SYNCTHING_FOLDER_ID=$FOLDER_ID" >> "$NODE_CONF"
-            fi
+            set_value "$NODE_CONF" "SYNCTHING_FOLDER_ID" "$FOLDER_ID"
             
             # Read SYNCTHING_DEVICE_ID from creds/node.conf and set as SYNCTHING_TARGET_DEVICE_ID
-            TARGET_DEVICE_ID=$(grep "^SYNCTHING_DEVICE_ID=" "$ROOT_NODE_CONF" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"')
+            TARGET_DEVICE_ID=$(get_value "$ROOT_NODE_CONF" "SYNCTHING_DEVICE_ID")
             if [[ -n "$TARGET_DEVICE_ID" ]]; then
-                if grep -q "SYNCTHING_TARGET_DEVICE_ID" "$NODE_CONF"; then
-                    sed -i "s|SYNCTHING_TARGET_DEVICE_ID=.*|SYNCTHING_TARGET_DEVICE_ID=$TARGET_DEVICE_ID|" "$NODE_CONF"
-                else
-                    echo "SYNCTHING_TARGET_DEVICE_ID=$TARGET_DEVICE_ID" >> "$NODE_CONF"
-                fi
+                set_value "$NODE_CONF" "SYNCTHING_TARGET_DEVICE_ID" "$TARGET_DEVICE_ID"
             fi
             
         else
