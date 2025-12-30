@@ -214,7 +214,7 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
     echo "Testing Quadlet support..."
     TEST_SERVICE_NAME="test-quadlet"
-    TEST_SERVICE_FILE="/etc/containers/systemd/${TEST_SERVICE_NAME}.service"
+    TEST_SERVICE_FILE="/etc/containers/systemd/${TEST_SERVICE_NAME}.container"
     
     # Create test Quadlet service file
     mkdir -p /etc/containers/systemd
@@ -223,8 +223,7 @@ if command -v systemctl >/dev/null 2>&1; then
 Description=Test Podman Quadlet Service
 
 [Container]
-Image=alpine:latest
-Exec=echo "Quadlet test successful"
+Image=docker.io/library/nginx:latest
 AutoUpdate=never
 
 [Service]
@@ -239,7 +238,7 @@ EOF
         echo "✓ Quadlet service recognized by systemd"
         
         # Try to enable and start the service
-        if systemctl enable --now "${TEST_SERVICE_NAME}.service" >/dev/null 2>&1; then
+        if systemctl start "${TEST_SERVICE_NAME}.service" >/dev/null 2>&1; then
             # Check service status
             if systemctl status "${TEST_SERVICE_NAME}.service" >/dev/null 2>&1; then
                 echo "✓ Quadlet service started successfully"
@@ -256,12 +255,11 @@ EOF
     
     # Cleanup: Stop and disable test service
     systemctl stop "${TEST_SERVICE_NAME}.service" 2>/dev/null || true
-    systemctl disable "${TEST_SERVICE_NAME}.service" 2>/dev/null || true
     
     # Cleanup: Find and remove test service files
     for quadlet_dir in /etc/containers/systemd /usr/share/containers/systemd; do
         if [[ -d "$quadlet_dir" ]]; then
-            find "$quadlet_dir" -name "${TEST_SERVICE_NAME}*" -type f -exec rm -f {} \; 2>/dev/null || true
+            find "$quadlet_dir" -name "*${TEST_SERVICE_NAME}*" -type f -exec rm -f {} \; 2>/dev/null || true
         fi
     done
     
