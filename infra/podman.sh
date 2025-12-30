@@ -143,38 +143,50 @@ else
         ca-certificates \
         >/dev/null 2>&1
     
-    # Try to install Podman from Debian repositories first
-    echo "Attempting to install Podman from Debian repositories..."
-    if apt-get install -y -qq podman podman-compose >/dev/null 2>&1; then
-        echo "✓ Podman installed from Debian repositories"
-    else
-        # If not available in Debian repos, add external repository
-        echo "Podman not found in Debian repositories, adding external repository..."
+    # Ask user which version to install
+    echo ""
+    echo "Choose Podman installation source:"
+    echo "1) Stable version from Debian repositories (recommended)"
+    echo "2) Latest version from Debian testing (forky) - includes Quadlet subcommands"
+    read -p "Choose option [1-2] (default: 1): " INSTALL_OPTION
+    INSTALL_OPTION="${INSTALL_OPTION:-1}"
+    
+    if [[ "$INSTALL_OPTION" == "2" ]]; then
+        # Install from Debian testing (forky)
+        echo "Installing Podman from Debian testing (forky)..."
         
-        if [[ ! -f /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list ]]; then
-            echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_${DEBIAN_VERSION^}/ /" | \
-                tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list >/dev/null
-            
-            # Add repository key
-            if ! curl -fsSL "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/Debian_${DEBIAN_VERSION^}/Release.key" | \
-                gpg --dearmor -o /etc/apt/trusted.gpg.d/libcontainers.gpg 2>/dev/null; then
-                # Fallback to wget
-                if ! wget -qO- "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/Debian_${DEBIAN_VERSION^}/Release.key" | \
-                    gpg --dearmor -o /etc/apt/trusted.gpg.d/libcontainers.gpg 2>/dev/null; then
-                    echo "Error: Failed to add Podman repository key"
-                    exit 1
-                fi
-            fi
-            
-            apt-get update -qq
+        # Add Debian testing repository with low priority
+        if [[ ! -f /etc/apt/sources.list.d/debian-testing.list ]]; then
+            echo "deb http://deb.debian.org/debian forky main" > /etc/apt/sources.list.d/debian-testing.list
         fi
         
-        # Install Podman and Quadlet from external repository
-        echo "Installing Podman and Quadlet packages from external repository..."
-        apt-get install -y -qq \
-            podman \
-            podman-compose \
-            >/dev/null 2>&1
+        # Set low priority for testing repository
+        if [[ ! -f /etc/apt/preferences.d/podman-testing.pref ]]; then
+            cat > /etc/apt/preferences.d/podman-testing.pref <<EOF
+Package: *
+Pin: release n=forky
+Pin-Priority: 100
+EOF
+        fi
+        
+        apt-get update -qq
+        
+        # Install Podman from testing
+        if apt-get install -y -t forky podman podman-compose >/dev/null 2>&1; then
+            echo "✓ Podman installed from Debian testing (forky)"
+        else
+            echo "Error: Failed to install Podman from Debian testing"
+            exit 1
+        fi
+    else
+        # Install from stable Debian repositories
+        echo "Installing Podman from Debian stable repositories..."
+        if apt-get install -y -qq podman podman-compose >/dev/null 2>&1; then
+            echo "✓ Podman installed from Debian repositories"
+        else
+            echo "Error: Failed to install Podman from Debian repositories"
+            exit 1
+        fi
     fi
     
     # Check if quadlet package exists separately (for newer versions)
