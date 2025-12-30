@@ -20,7 +20,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NODE_CONF="$REPO_ROOT/creds/node.conf"
 SYNCTHING_MOUNT_DIR="$REPO_ROOT/creds/mounts/syncthing"
 CONTAINER_NAME="setup-node-syncthing"

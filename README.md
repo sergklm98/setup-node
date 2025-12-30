@@ -26,7 +26,7 @@ You can find your API key in your Syncthing configuration file (usually `~/.conf
 
 ### 1. Initial Node Setup
 
-Run `creds/scripts/add-node.sh` to add a new VPS node to the repository. This script will:
+Run `infra/add-node.sh` to add a new VPS node to the repository. This script will:
 - Collect SSH connection details (node name, IP, port, username, authentication method)
 - Establish SSH access with key-based authentication
 - Create node configuration templates in `creds/nodes/<node-name>/`
@@ -41,7 +41,7 @@ Edit the generated configuration files in `creds/nodes/<node-name>/` to:
 
 ### 3. Deploy and Bootstrap Node
 
-Run `creds/scripts/setup-node.sh` to deploy and configure the target VPS. This script will:
+Run `infra/setup-node.sh` to deploy and configure the target VPS. This script will:
 - Connect to the node via SSH
 - Clone or update the repository on the remote server
 - Copy node-specific configuration files
@@ -52,7 +52,7 @@ Run `creds/scripts/setup-node.sh` to deploy and configure the target VPS. This s
 
 If you need to modify node settings:
 1. Update the configuration files in `creds/nodes/<node-name>/`
-2. Run `creds/scripts/setup-node.sh` again to apply the changes to the VPS
+2. Run `infra/setup-node.sh` again to apply the changes to the VPS
 
 ## Architecture
 

@@ -1,3 +1,2 @@
 creds/*
-!creds/scripts
 !creds/node-template.conf

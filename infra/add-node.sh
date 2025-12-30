@@ -19,7 +19,7 @@ get_value() {
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 NODES_DIR="$REPO_ROOT/creds/nodes"
 SSH_KEYS_DIR="$REPO_ROOT/creds/ssh"
 SSH_CONFIG="$HOME/.ssh/config"
@@ -551,4 +551,4 @@ echo "SSH config: Use 'ssh $NODE_NAME' to connect"
 echo ""
 echo "Next steps:"
 echo "1. Edit $NODE_CONF to configure network CIDRs and apps"
-echo "2. Run: creds/scripts/setup-node.sh $NODE_NAME"
+echo "2. Run: infra/setup-node.sh $NODE_NAME"
