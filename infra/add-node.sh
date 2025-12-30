@@ -399,7 +399,7 @@ mkdir -p "$NODE_DIR"
 # Create or update node.conf template
 if [[ ! -f "$NODE_CONF" ]]; then
     cat > "$NODE_CONF" <<EOF
-# NODE_NAME=$NODE_NAME
+NODE_NAME=$NODE_NAME
 NODE_IPs=$NODE_IP
 
 # podman dualstack

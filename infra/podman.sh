@@ -44,6 +44,8 @@ if [[ -f "$NODE_CONF" ]]; then
         echo "PODMAN_BIN is already configured to use $PODMAN_BIN"
         exit 0
     fi
+else
+    echo "Note: $NODE_CONF not found, will create it"
 fi
 
 # Step 2: Check if Podman is installed
