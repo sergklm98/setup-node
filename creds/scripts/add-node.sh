@@ -285,34 +285,6 @@ if [[ "$EXISTING_KEY_WORKS" == "false" ]]; then
         echo "✓ Keys generated in: $SSH_KEYS_DIR"
     fi
 
-    # Link/copy private key to ~/.ssh for SSH config
-    SSH_KEY_LINK="$SSH_KEY_DIR/$NEW_KEY_NAME"
-    if [[ ! -e "$SSH_KEY_LINK" ]]; then
-        # Try to create hardlink first (same filesystem requirement)
-        if ln "$NEW_KEY_PATH" "$SSH_KEY_LINK" 2>/dev/null; then
-            echo "✓ Created hardlink to private key in ~/.ssh"
-        else
-            # Fallback to copy if hardlink fails (different filesystem)
-            echo "Hardlink not possible, copying private key to ~/.ssh"
-            cp "$NEW_KEY_PATH" "$SSH_KEY_LINK"
-            chmod 600 "$SSH_KEY_LINK"
-        fi
-    else
-        echo "✓ Private key link in ~/.ssh already exists"
-        # Update if source is newer (in case key was regenerated)
-        if [[ "$NEW_KEY_PATH" -nt "$SSH_KEY_LINK" ]]; then
-            rm -f "$SSH_KEY_LINK"
-            # Try hardlink again, fallback to copy
-            if ln "$NEW_KEY_PATH" "$SSH_KEY_LINK" 2>/dev/null; then
-                echo "Updated hardlink to private key in ~/.ssh"
-            else
-                echo "Updated copy of private key in ~/.ssh"
-                cp "$NEW_KEY_PATH" "$SSH_KEY_LINK"
-                chmod 600 "$SSH_KEY_LINK"
-            fi
-        fi
-    fi
-
     # Check if public key is already on server
     echo "Checking if public key is already on server..."
     PUBLIC_KEY=$(cat "$NEW_KEY_PUB_PATH")
@@ -350,6 +322,36 @@ if [[ "$EXISTING_KEY_WORKS" == "false" ]]; then
         exit 1
     fi
     echo "✓ Key authentication test successful"
+fi
+
+# Link/copy private key to ~/.ssh for SSH config (for both existing and new keys)
+if [[ -n "${NEW_KEY_NAME:-}" ]] && [[ -n "${NEW_KEY_PATH:-}" ]]; then
+    SSH_KEY_LINK="$SSH_KEY_DIR/$NEW_KEY_NAME"
+    if [[ ! -e "$SSH_KEY_LINK" ]]; then
+        # Try to create hardlink first (same filesystem requirement)
+        if ln "$NEW_KEY_PATH" "$SSH_KEY_LINK" 2>/dev/null; then
+            echo "✓ Created hardlink to private key in ~/.ssh"
+        else
+            # Fallback to copy if hardlink fails (different filesystem)
+            echo "Hardlink not possible, copying private key to ~/.ssh"
+            cp "$NEW_KEY_PATH" "$SSH_KEY_LINK"
+            chmod 600 "$SSH_KEY_LINK"
+        fi
+    else
+        echo "✓ Private key link in ~/.ssh already exists"
+        # Update if source is newer (in case key was regenerated)
+        if [[ "$NEW_KEY_PATH" -nt "$SSH_KEY_LINK" ]]; then
+            rm -f "$SSH_KEY_LINK"
+            # Try hardlink again, fallback to copy
+            if ln "$NEW_KEY_PATH" "$SSH_KEY_LINK" 2>/dev/null; then
+                echo "Updated hardlink to private key in ~/.ssh"
+            else
+                echo "Updated copy of private key in ~/.ssh"
+                cp "$NEW_KEY_PATH" "$SSH_KEY_LINK"
+                chmod 600 "$SSH_KEY_LINK"
+            fi
+        fi
+    fi
 fi
 
 # Add to SSH config

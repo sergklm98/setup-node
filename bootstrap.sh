@@ -4,3 +4,5 @@
 # 3. infra/network.sh - Creates a dualstack Podman network (supporting both IPv4 and IPv6).
 # 4. infra/apps.sh - Installs the selected applications chosen to be deployed on the node.
 # Before running each script, it performs checks to ensure all required configuration parameters are properly set, preventing failures and ensuring a smooth deployment process.
+
+echo "Starting bootstrap..."
