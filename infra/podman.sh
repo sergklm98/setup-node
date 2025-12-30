@@ -38,17 +38,22 @@ echo "=== Podman Installation ==="
 echo ""
 
 # Step 1: Check if PODMAN_BIN is already configured
+echo "Checking for existing PODMAN_BIN configuration..."
 if [[ -f "$NODE_CONF" ]]; then
-    PODMAN_BIN=$(get_value "$NODE_CONF" "PODMAN_BIN")
+    echo "Found $NODE_CONF"
+    PODMAN_BIN=$(get_value "$NODE_CONF" "PODMAN_BIN" || echo "")
     if [[ -n "$PODMAN_BIN" ]]; then
         echo "PODMAN_BIN is already configured to use $PODMAN_BIN"
         exit 0
+    else
+        echo "PODMAN_BIN not found in config, proceeding..."
     fi
 else
     echo "Note: $NODE_CONF not found, will create it"
 fi
 
 # Step 2: Check if Podman is installed
+echo "Checking if Podman is installed..."
 if command -v podman >/dev/null 2>&1; then
     echo "Podman is already installed."
     PODMAN_VERSION=$(podman --version 2>/dev/null || echo "unknown")
