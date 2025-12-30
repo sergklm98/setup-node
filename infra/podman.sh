@@ -38,18 +38,12 @@ echo "=== Podman Installation ==="
 echo ""
 
 # Step 1: Check if PODMAN_BIN is already configured
-echo "Checking for existing PODMAN_BIN configuration..."
 if [[ -f "$NODE_CONF" ]]; then
-    echo "Found $NODE_CONF"
     PODMAN_BIN=$(get_value "$NODE_CONF" "PODMAN_BIN" || echo "")
     if [[ -n "$PODMAN_BIN" ]]; then
         echo "PODMAN_BIN is already configured to use $PODMAN_BIN"
         exit 0
-    else
-        echo "PODMAN_BIN not found in config, proceeding..."
     fi
-else
-    echo "Note: $NODE_CONF not found, will create it"
 fi
 
 # Step 2: Check if Podman is installed
@@ -149,27 +143,39 @@ else
         ca-certificates \
         >/dev/null 2>&1
     
-    # Add Podman repository
-    echo "Adding Podman repository..."
-    if [[ ! -f /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list ]]; then
-        echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_${DEBIAN_VERSION^}/ /" | \
-            tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list >/dev/null
+    # Try to install Podman from Debian repositories first
+    echo "Attempting to install Podman from Debian repositories..."
+    if apt-get install -y -qq podman podman-compose >/dev/null 2>&1; then
+        echo "✓ Podman installed from Debian repositories"
+    else
+        # If not available in Debian repos, add external repository
+        echo "Podman not found in Debian repositories, adding external repository..."
         
-        # Add repository key
-        curl -fsSL "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/Debian_${DEBIAN_VERSION^}/Release.key" | \
-            gpg --dearmor -o /etc/apt/trusted.gpg.d/libcontainers.gpg 2>/dev/null || \
-            wget -qO- "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/Debian_${DEBIAN_VERSION^}/Release.key" | \
-            gpg --dearmor -o /etc/apt/trusted.gpg.d/libcontainers.gpg 2>/dev/null
+        if [[ ! -f /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list ]]; then
+            echo "deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/Debian_${DEBIAN_VERSION^}/ /" | \
+                tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list >/dev/null
+            
+            # Add repository key
+            if ! curl -fsSL "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/Debian_${DEBIAN_VERSION^}/Release.key" | \
+                gpg --dearmor -o /etc/apt/trusted.gpg.d/libcontainers.gpg 2>/dev/null; then
+                # Fallback to wget
+                if ! wget -qO- "https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/Debian_${DEBIAN_VERSION^}/Release.key" | \
+                    gpg --dearmor -o /etc/apt/trusted.gpg.d/libcontainers.gpg 2>/dev/null; then
+                    echo "Error: Failed to add Podman repository key"
+                    exit 1
+                fi
+            fi
+            
+            apt-get update -qq
+        fi
         
-        apt-get update -qq
+        # Install Podman and Quadlet from external repository
+        echo "Installing Podman and Quadlet packages from external repository..."
+        apt-get install -y -qq \
+            podman \
+            podman-compose \
+            >/dev/null 2>&1
     fi
-    
-    # Install Podman and Quadlet
-    echo "Installing Podman and Quadlet packages..."
-    apt-get install -y -qq \
-        podman \
-        podman-compose \
-        >/dev/null 2>&1
     
     # Check if quadlet package exists separately (for newer versions)
     if apt-cache search podman-quadlet 2>/dev/null | grep -q podman-quadlet; then
