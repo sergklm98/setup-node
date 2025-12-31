@@ -96,9 +96,9 @@ else
 fi
 
 # Try to get IPv6 external (force IPv6 connection)
-IPV6_EXTERNAL=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null || \
-                curl -6 -s --max-time 5 https://ifconfig.me 2>/dev/null || \
-                curl -6 -s --max-time 5 https://icanhazip.com 2>/dev/null || true)
+IPV6_EXTERNAL=$(curl -6 -s --max-time 5 https://api6.ipify.org 2>/dev/null || \
+                curl -6 -s --max-time 5 https://ifconfig.co 2>/dev/null || \
+                curl -6 -s --max-time 5 https://ipv6.icanhazip.com 2>/dev/null || true)
 # Validate that it's actually IPv6 (contains colons)
 if [[ -n "$IPV6_EXTERNAL" ]] && [[ "$IPV6_EXTERNAL" =~ : ]]; then
     echo "IPv6 External: $IPV6_EXTERNAL"
@@ -107,6 +107,10 @@ else
 fi
 
 # Determine NAT status by comparing external IPs with local IPs
+# If external IP is empty, protocol is not available (not NAT, just no internet access via that protocol)
+# If external IP exists but doesn't match local IP, server is behind NAT
+# If external IP exists and matches local IP, server has direct internet access (no NAT)
+
 NAT_STATUS="unknown"
 IPV4_NAT="yes"
 IPV6_NAT="yes"
@@ -119,6 +123,8 @@ if [[ -n "$IPV4_EXTERNAL" ]]; then
             break
         fi
     done
+else
+    IPV4_NAT="no"
 fi
 
 # Check if external IPv6 matches any local IPv6
@@ -129,6 +135,8 @@ if [[ -n "$IPV6_EXTERNAL" ]]; then
             break
         fi
     done
+else
+    IPV6_NAT="no"
 fi
 
 # Set NAT status based on the results
