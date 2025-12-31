@@ -80,6 +80,21 @@ else
     echo "Creating IPv4-only network"
 fi
 
+# Check if network already exists
+if $PODMAN_BIN network exists "$NETWORK_NAME" >/dev/null 2>&1; then
+    echo ""
+    echo "✓ Network '$NETWORK_NAME' already exists"
+    echo "Network details:"
+    $PODMAN_BIN network inspect "$NETWORK_NAME" 2>/dev/null | jq -r '(.Name, .Subnet, .IPv6Subnet)' 2>/dev/null || \
+        $PODMAN_BIN network inspect "$NETWORK_NAME" 2>/dev/null | grep -E "(Name|Subnet|IPv6Subnet)" || true
+    echo ""
+    echo "Available networks:"
+    $PODMAN_BIN network ls
+    echo ""
+    echo "Network setup completed successfully!"
+    exit 0
+fi
+
 # Step 3: Install aardvark-dns and netavark if not present
 echo ""
 echo "Step 3: Checking network dependencies..."
@@ -100,62 +115,56 @@ log_driver = "json-file"
 log_size_max = 52428800
 EOF
     echo "✓ Default containers.conf created"
+else
+    echo "✓ $CONTAINERS_CONF already exists"
 fi
 
 # Step 5: Create Podman network using Quadlet
 echo ""
 echo "Step 5: Creating Podman network using Quadlet..."
+# Create Quadlet network directory
+QUADLET_NETWORK_DIR="/etc/containers/systemd"
+mkdir -p "$QUADLET_NETWORK_DIR"
 
-# Check if network already exists
-if $PODMAN_BIN network exists "$NETWORK_NAME" >/dev/null 2>&1; then
-    echo "✓ Network '$NETWORK_NAME' already exists"
-    echo "Network details:"
-    $PODMAN_BIN network inspect "$NETWORK_NAME" 2>/dev/null | grep -E "(Name|Subnet|IPv6Subnet)" || true
-else
-    # Create Quadlet network directory
-    QUADLET_NETWORK_DIR="/etc/containers/systemd"
-    mkdir -p "$QUADLET_NETWORK_DIR"
-    
-    # Create .network file for Quadlet
-    NETWORK_FILE="$QUADLET_NETWORK_DIR/${NETWORK_NAME}.network"
-    
-    echo "Creating Quadlet network file: $NETWORK_FILE"
-    cat > "$NETWORK_FILE" <<EOF
+# Create .network file for Quadlet
+NETWORK_FILE="$QUADLET_NETWORK_DIR/${NETWORK_NAME}.network"
+
+echo "Creating Quadlet network file: $NETWORK_FILE"
+cat > "$NETWORK_FILE" <<EOF
 [Network]
 NetworkName=$NETWORK_NAME
 Subnet=$NETWORK_IP4_CIDR
 EOF
     
-    # Add IPv6 subnet if provided
-    if [[ -n "$NETWORK_IP6_CIDR" ]]; then
-        echo "IPv6=true" >> "$NETWORK_FILE"
-        echo "Subnet=$NETWORK_IP6_CIDR" >> "$NETWORK_FILE"
-    fi
-    
-    # Reload systemd to pick up the new network file
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl daemon-reload
-        
-        # Start the network service (Quadlet will create the network)
-        echo "Starting network service..."
-        systemctl start "${NETWORK_NAME}-network.service" 2>/dev/null || true
-        
-        # Wait a moment for network to be created
-        sleep 1
-    fi
-    
-    # Verify network was created by Quadlet, if not create manually
-    if ! $PODMAN_BIN network exists "$NETWORK_NAME" >/dev/null 2>&1; then
-        echo "Network not created by Quadlet, creating manually..."
-        if [[ -n "$NETWORK_IP6_CIDR" ]]; then
-            $PODMAN_BIN network create --subnet "$NETWORK_IP4_CIDR" --ipv6 --subnet "$NETWORK_IP6_CIDR" "$NETWORK_NAME"
-        else
-            $PODMAN_BIN network create --subnet "$NETWORK_IP4_CIDR" "$NETWORK_NAME"
-        fi
-    fi
-    
-    echo "✓ Network '$NETWORK_NAME' created successfully"
+# Add IPv6 subnet if provided
+if [[ -n "$NETWORK_IP6_CIDR" ]]; then
+    echo "IPv6=true" >> "$NETWORK_FILE"
+    echo "Subnet=$NETWORK_IP6_CIDR" >> "$NETWORK_FILE"
 fi
+
+# Reload systemd to pick up the new network file
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    
+    # Start the network service (Quadlet will create the network)
+    echo "Starting network service..."
+    systemctl start "${NETWORK_NAME}-network.service" 2>/dev/null || true
+    
+    # Wait a moment for network to be created
+    sleep 1
+fi
+
+# Verify network was created by Quadlet, if not create manually
+if ! $PODMAN_BIN network exists "$NETWORK_NAME" >/dev/null 2>&1; then
+    echo "Network not created by Quadlet, creating manually..."
+    if [[ -n "$NETWORK_IP6_CIDR" ]]; then
+        $PODMAN_BIN network create --subnet "$NETWORK_IP4_CIDR" --ipv6 --subnet "$NETWORK_IP6_CIDR" "$NETWORK_NAME"
+    else
+        $PODMAN_BIN network create --subnet "$NETWORK_IP4_CIDR" "$NETWORK_NAME"
+    fi
+fi
+
+echo "✓ Network '$NETWORK_NAME' created successfully"
 
 # Step 6: Verify network creation
 echo ""
