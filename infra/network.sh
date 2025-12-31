@@ -175,7 +175,7 @@ if $PODMAN_BIN network exists "$NETWORK_NAME" >/dev/null 2>&1; then
     echo "Network information:"
     $PODMAN_BIN network inspect "$NETWORK_NAME" 2>/dev/null | grep -E "(Name|Subnet|IPv6Subnet|Driver)" || true
     echo ""
-    echo "Available networks:"
+    $PODMAN_BIN network inspect "$NETWORK_NAME" 2>/dev/null | jq -r '.[0] | "name=" + .name, "driver=" + .driver, "network_interface=" + .network_interface, (.subnets[] | tostring), "ipv6=" + (.ipv6_enabled | tostring), "dns=" + (.dns_enabled | tostring)' || true
     $PODMAN_BIN network ls
 else
     echo "Error: Network '$NETWORK_NAME' was not created"
