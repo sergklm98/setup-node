@@ -1,6 +1,7 @@
 #!/bin/bash
-# This bootstrap script orchestrates the setup of a new node by executing four key scripts in sequence.
+# This bootstrap script orchestrates the setup of a new node by executing five key scripts in sequence.
 # The script is idempotent - it can be run multiple times safely.
+# 0. infra/get-ip.sh - Detects private/public IP addresses (IPv4/IPv6) and NAT status, writes to node.conf.
 # 1. infra/podman.sh - Identifies the Debian version and installs the latest Podman with Quadlet support.
 # 2. infra/network.sh - Creates a dualstack Podman network (supporting both IPv4 and IPv6).
 # 3. infra/pull-config.sh - Pulls the latest configuration files for the node via syncthing.
@@ -13,6 +14,14 @@ INFRA_DIR="$SCRIPT_DIR/infra"
 
 echo "Starting bootstrap..."
 echo "Script directory: $SCRIPT_DIR"
+echo ""
+
+# Step 0: Detect IP addresses and NAT status
+echo "=========================================="
+echo "Step 0: Detecting IP addresses and NAT status..."
+echo "=========================================="
+bash "$INFRA_DIR/get-ip.sh"
+echo "✓ IP detection completed"
 echo ""
 
 # Step 1: Install Podman with Quadlet support
