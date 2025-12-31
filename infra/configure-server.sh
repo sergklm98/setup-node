@@ -1,7 +1,12 @@
 #!/bin/bash
 # This script configures the server by installing utilities, detecting IP addresses,
 # and configuring SSH settings.
-# The script is idempotent - it can be run multiple times safely.
+# The script is idempotent - it will skip steps that are already completed.
+#
+# Steps:
+# 1. Install required utilities (jq, curl, wget, iproute2, dnsutils, net-tools, nftables, and additional from ADDITIONAL_UTILS).
+# 2. Detect IP addresses (IPv4/IPv6) and NAT status, write to node.conf.
+# 3. Configure SSH (key-based authentication priority, root login only via key, modern ciphers).
 
 set -euo pipefail
 
@@ -17,16 +22,11 @@ echo "Step 1: Installing required utilities..."
 
 PACKAGES="jq curl wget iproute2 dnsutils net-tools nftables"
 
-# Read ADDITIONAL_UTILS from node.conf and add to packages (skip commented ones with #)
+# Read ADDITIONAL_UTILS from node.conf and add to packages
 if [[ -f "$NODE_CONF" ]]; then
     ADDITIONAL_UTILS=$(get_value "$NODE_CONF" "ADDITIONAL_UTILS")
     if [[ -n "$ADDITIONAL_UTILS" ]]; then
-        for util in $(echo "$ADDITIONAL_UTILS" | tr ',' ' '); do
-            # Skip if starts with #
-            if [[ ! "$util" =~ ^# ]]; then
-                PACKAGES="$PACKAGES $util"
-            fi
-        done
+        PACKAGES="$PACKAGES $(echo "$ADDITIONAL_UTILS" | tr ',' ' ')"
     fi
 fi
 
@@ -70,22 +70,20 @@ IPV4_EXTERNAL=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || \
                 wget -qO- --timeout=5 https://api.ipify.org 2>/dev/null || \
                 wget -qO- --timeout=5 https://ifconfig.me 2>/dev/null || true)
 # Validate that it's actually IPv4 (contains dots, no colons)
-if [[ -n "$IPV4_EXTERNAL" ]] && [[ "$IPV4_EXTERNAL" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "IPv4 External: $IPV4_EXTERNAL"
-else
+if [[ -z "$IPV4_EXTERNAL" ]] || [[ ! "$IPV4_EXTERNAL" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     IPV4_EXTERNAL=""
 fi
+echo "IPv4 External: ${IPV4_EXTERNAL:-}"
 
 # Try to get IPv6 external (force IPv6 connection)
 IPV6_EXTERNAL=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null || \
                 curl -6 -s --max-time 5 https://ifconfig.me 2>/dev/null || \
                 curl -6 -s --max-time 5 https://icanhazip.com 2>/dev/null || true)
 # Validate that it's actually IPv6 (contains colons)
-if [[ -n "$IPV6_EXTERNAL" ]] && [[ "$IPV6_EXTERNAL" =~ : ]]; then
-    echo "IPv6 External: $IPV6_EXTERNAL"
-else
+if [[ -z "$IPV6_EXTERNAL" ]] || [[ ! "$IPV6_EXTERNAL" =~ : ]]; then
     IPV6_EXTERNAL=""
 fi
+echo "IPv6 External: ${IPV6_EXTERNAL:-}"
 
 # Determine NAT status by comparing external IPs with local IPs
 NAT_STATUS="unknown"
@@ -93,27 +91,27 @@ IPV4_NAT="yes"
 IPV6_NAT="yes"
 
 # Check if external IPv4 matches any local IPv4
-if [[ -n "$IPV4_EXTERNAL" ]]; then
+if [[ -z "$IPV4_EXTERNAL" ]]; then
+    IPV4_NAT="no" # No external IPv4 = no NAT
+else
     for ip in "${IPV4_ALL[@]}"; do
         if [[ "$ip" == "$IPV4_EXTERNAL" ]]; then
             IPV4_NAT="no"
             break
         fi
     done
-else
-    IPV4_NAT="no"
 fi
 
 # Check if external IPv6 matches any local IPv6
-if [[ -n "$IPV6_EXTERNAL" ]]; then
+if [[ -z "$IPV6_EXTERNAL" ]]; then
+    IPV6_NAT="no" # No external IPv6 = no NAT
+else
     for ip in "${IPV6_ALL[@]}"; do
         if [[ "$ip" == "$IPV6_EXTERNAL" ]]; then
             IPV6_NAT="no"
             break
         fi
     done
-else
-    IPV6_NAT="no"
 fi
 
 # Set NAT status based on the results
@@ -161,18 +159,10 @@ for ip in "${IPV6_ALL[@]}"; do
 done
 
 # Display results
-if [[ ${#IPV4_PRIVATE[@]} -gt 0 ]]; then
-    echo "IPv4 Private: $(IFS=','; echo "${IPV4_PRIVATE[*]}")"
-fi
-if [[ ${#IPV4_PUBLIC[@]} -gt 0 ]]; then
-    echo "IPv4 Public: $(IFS=','; echo "${IPV4_PUBLIC[*]}")"
-fi
-if [[ ${#IPV6_PRIVATE[@]} -gt 0 ]]; then
-    echo "IPv6 Private: $(IFS=','; echo "${IPV6_PRIVATE[*]}")"
-fi
-if [[ ${#IPV6_PUBLIC[@]} -gt 0 ]]; then
-    echo "IPv6 Public: $(IFS=','; echo "${IPV6_PUBLIC[*]}")"
-fi
+echo "IPv4 Private: $(IFS=','; echo "${IPV4_PRIVATE[*]:-}")"
+echo "IPv4 Public: $(IFS=','; echo "${IPV4_PUBLIC[*]:-}")"
+echo "IPv6 Private: $(IFS=','; echo "${IPV6_PRIVATE[*]:-}")"
+echo "IPv6 Public: $(IFS=','; echo "${IPV6_PUBLIC[*]:-}")"
 
 # Build NODE_IPs in order: public IPv4 (no NAT), public IPv6 (no NAT), other IPv4, other IPv6
 NODE_IPS=()

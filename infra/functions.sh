@@ -21,10 +21,11 @@ SSH_KEYS_DIR="${SSH_KEYS_DIR:-$CREDS_DIR/ssh}"
 MOUNTS_DIR="${MOUNTS_DIR:-$CREDS_DIR/mounts}"
 
 # Function to extract value from key=value format (removes quotes and whitespace)
+# Trims everything after # (comments) in the line
 get_value() {
     local file="$1"
     local key="$2"
-    grep "^$key=" "$file" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"'
+    grep "^$key=" "$file" 2>/dev/null | sed 's/#.*$//' | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"'
 }
 
 # Function to set value in config file
