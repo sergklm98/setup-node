@@ -11,29 +11,11 @@
 
 set -euo pipefail
 
-# Function to extract value from key=value format (removes quotes and whitespace)
-get_value() {
-    local file="$1"
-    local key="$2"
-    grep "^$key=" "$file" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"'
-}
-
-# Function to set value in config file
-set_value() {
-    local file="$1"
-    local key="$2"
-    local value="$3"
-    if grep -q "^$key=" "$file" 2>/dev/null; then
-        sed -i "s|^$key=.*|$key=$value|" "$file"
-    else
-        echo "$key=$value" >> "$file"
-    fi
-}
-
+# Source common functions and variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-NODES_DIR="$REPO_ROOT/creds/nodes"
-SSH_KEYS_DIR="$REPO_ROOT/creds/ssh"
+source "$SCRIPT_DIR/functions.sh"
+
+# Additional paths specific to this script
 SSH_CONFIG="$HOME/.ssh/config"
 SSH_KEY_DIR="$HOME/.ssh"
 

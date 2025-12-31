@@ -9,9 +9,9 @@
 
 set -euo pipefail
 
+# Source common functions and variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-NODES_DIR="$REPO_ROOT/creds/nodes"
+source "$SCRIPT_DIR/functions.sh"
 
 # Get node name from argument or prompt
 NODE_NAME="${1:-}"
@@ -45,6 +45,18 @@ SSH_CMD="ssh $NODE_NAME"
 echo "Step 1-2: Checking repository on remote server..."
 $SSH_CMD bash <<EOF
 set -euo pipefail
+
+# Check if git is installed, install if missing (Debian/Ubuntu only)
+if ! command -v git >/dev/null 2>&1; then
+    echo "Git not found, installing git..."
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt update -qq
+        sudo apt install -y -qq git
+    else
+        echo "Error: git is required but not installed, and unable to auto-install (apt-get not found)."
+        exit 1
+    fi
+fi
 
 REPO_PATH="$REPO_PATH_ON_SERVER"
 if [[ -d "\$REPO_PATH/.git" ]]; then

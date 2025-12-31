@@ -13,16 +13,9 @@
 
 set -euo pipefail
 
+# Source common functions and variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-NODE_CONF="$REPO_ROOT/creds/node.conf"
-
-# Function to extract value from key=value format (removes quotes and whitespace)
-get_value() {
-    local file="$1"
-    local key="$2"
-    grep "^$key=" "$file" 2>/dev/null | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"'
-}
+source "$SCRIPT_DIR/functions.sh"
 
 # Function to get PODMAN_BIN from config or default to podman
 get_podman_bin() {
