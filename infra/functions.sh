@@ -25,7 +25,7 @@ MOUNTS_DIR="${MOUNTS_DIR:-$CREDS_DIR/mounts}"
 get_value() {
     local file="$1"
     local key="$2"
-    grep "^$key=" "$file" 2>/dev/null | sed 's/#.*$//' | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"'
+    grep "^$key=" "$file" 2>/dev/null | sed 's/#.*$//' | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"' || true
 }
 
 # Function to set value in config file

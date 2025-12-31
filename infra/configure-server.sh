@@ -31,7 +31,7 @@ if [[ -f "$NODE_CONF" ]]; then
 fi
 
 apt-get update -qq >/dev/null 2>&1
-apt-get install -y -qq $PACKAGES >/dev/null 2>&1 || true
+apt-get install -y $PACKAGES >/dev/null 2>&1 || true
 echo "✓ Utilities installed"
 
 # Step 2: Detect IP addresses and NAT status
