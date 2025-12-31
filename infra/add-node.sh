@@ -489,7 +489,7 @@ else
     else
         # Generate folder ID from folder path (deterministic)
         # Use SHA256 hash of the path, truncated to 8 characters
-        FOLDER_ID=$(echo -n "$FOLDER_PATH" | sha256sum | cut -d' ' -f1 | cut -c1-8 | tr '[:lower:]' '[:upper:]')
+        FOLDER_ID=$(echo -n "$FOLDER_LABEL" | sha256sum | cut -c1-8 | tr '[:lower:]' '[:upper:]')
         
         # Create folder configuration with generated ID
         FOLDER_CONFIG=$(cat <<EOF

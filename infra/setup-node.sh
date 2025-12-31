@@ -50,7 +50,7 @@ REPO_PATH="$REPO_PATH_ON_SERVER"
 if [[ -d "\$REPO_PATH/.git" ]]; then
     echo "Repository exists, pulling latest changes..."
     cd "\$REPO_PATH"
-    git pull || echo "Warning: git pull failed, continuing..."
+    git pull || { echo "Error: Failed to pull latest changes from repository"; exit 1; }
 else
     echo "Repository not found, cloning..."
     git clone "$GIT_REPO_URL" "\$REPO_PATH" || { echo "Error: Failed to clone repository"; exit 1; }
