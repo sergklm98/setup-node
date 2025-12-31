@@ -202,22 +202,12 @@ NODE_IPS=()
 
 # 1. Public IPv4 without NAT (if external IPv4 matches one of our IPv4)
 if [[ -n "$IPV4_EXTERNAL" ]]; then
-    for ip in "${IPV4_ALL[@]}"; do
-        if [[ "$ip" == "$IPV4_EXTERNAL" ]]; then
-            NODE_IPS+=("$ip")
-            break
-        fi
-    done
+    NODE_IPS+=("$IPV4_EXTERNAL")
 fi
 
 # 2. Public IPv6 without NAT (if external IPv6 matches one of our IPv6)
 if [[ -n "$IPV6_EXTERNAL" ]]; then
-    for ip in "${IPV6_ALL[@]}"; do
-        if [[ "$ip" == "$IPV6_EXTERNAL" ]]; then
-            NODE_IPS+=("$ip")
-            break
-        fi
-    done
+    NODE_IPS+=("$IPV6_EXTERNAL")
 fi
 
 # 3. Other IPv4 addresses (excluding already added)
