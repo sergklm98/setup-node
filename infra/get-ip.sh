@@ -88,15 +88,22 @@ IPV4_EXTERNAL=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || \
                 curl -s --max-time 5 https://ifconfig.me 2>/dev/null || \
                 wget -qO- --timeout=5 https://api.ipify.org 2>/dev/null || \
                 wget -qO- --timeout=5 https://ifconfig.me 2>/dev/null || true)
-if [[ -n "$IPV4_EXTERNAL" ]]; then
+# Validate that it's actually IPv4 (contains dots, no colons)
+if [[ -n "$IPV4_EXTERNAL" ]] && [[ "$IPV4_EXTERNAL" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "IPv4 External: $IPV4_EXTERNAL"
+else
+    IPV4_EXTERNAL=""
 fi
 
-# Try to get IPv6 external (some services support it)
-IPV6_EXTERNAL=$(curl -s --max-time 5 https://api64.ipify.org 2>/dev/null || \
-                curl -s --max-time 5 -6 https://ifconfig.me 2>/dev/null || true)
-if [[ -n "$IPV6_EXTERNAL" ]]; then
+# Try to get IPv6 external (force IPv6 connection)
+IPV6_EXTERNAL=$(curl -6 -s --max-time 5 https://api64.ipify.org 2>/dev/null || \
+                curl -6 -s --max-time 5 https://ifconfig.me 2>/dev/null || \
+                curl -6 -s --max-time 5 https://icanhazip.com 2>/dev/null || true)
+# Validate that it's actually IPv6 (contains colons)
+if [[ -n "$IPV6_EXTERNAL" ]] && [[ "$IPV6_EXTERNAL" =~ : ]]; then
     echo "IPv6 External: $IPV6_EXTERNAL"
+else
+    IPV6_EXTERNAL=""
 fi
 
 # Determine NAT status by comparing external IPs with local IPs
