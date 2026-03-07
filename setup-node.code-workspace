@@ -4,5 +4,9 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"terminal.integrated.env.linux": {
+			"EDITOR": "code --wait"
+		}
+	}
 }
