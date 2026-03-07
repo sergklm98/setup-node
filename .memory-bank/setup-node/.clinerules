@@ -1,0 +1,6 @@
+### Container Strategy
+- Prefer rootless containers when possible for security
+- Allow privileged containers when necessary for functionality
+- Implement health checks for all services
+- Standardize container naming conventions
+- Apply security features based on specific node requirements

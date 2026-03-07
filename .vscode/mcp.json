@@ -1,0 +1,37 @@
+{
+	"servers": {
+		"memory-bank": {
+			"type": "stdio",
+			"command": "npx",
+			"envFile": "${workspaceFolder}/.vscode/mcp-env",
+			"args": [
+				"-y",
+				"@allpepper/memory-bank-mcp@latest"
+			],
+			"env": {
+				"MEMORY_BANK_ROOT": "${workspaceFolder}/.memory-bank"
+			}
+		},
+		"io.github.github/github-mcp-server": {
+			"type": "http",
+			"url": "https://api.githubcopilot.com/mcp/",
+			"gallery": "https://api.mcp.github.com",
+			"version": "0.32.0"
+		},
+        "context7": {
+            "type": "http",
+            "url": "https://mcp.context7.com/mcp",
+            "headers": {
+                "CONTEXT7_API_KEY": "${input:CONTEXT7_API_KEY}"
+            }
+        }
+	},
+	"inputs": [
+		{
+			"id": "CONTEXT7_API_KEY",
+			"type": "promptString",
+			"description": "API key for authentication",
+			"password": true
+		}
+	]
+}
