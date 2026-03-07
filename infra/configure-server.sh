@@ -24,7 +24,7 @@ PACKAGES="jq curl wget iproute2 dnsutils net-tools nftables"
 
 # Read ADDITIONAL_UTILS from node.conf and add to packages
 if [[ -f "$NODE_CONF" ]]; then
-    ADDITIONAL_UTILS=$(get_value "$NODE_CONF" "ADDITIONAL_UTILS")
+    ADDITIONAL_UTILS=$(get_conf_value "ADDITIONAL_UTILS")
     if [[ -n "$ADDITIONAL_UTILS" ]]; then
         PACKAGES="$PACKAGES $(echo "$ADDITIONAL_UTILS" | tr ',' ' ')"
     fi
@@ -208,7 +208,7 @@ done
 # Write NODE_IPs to node.conf
 if [[ ${#NODE_IPS[@]} -gt 0 ]]; then
     NODE_IPS_STR=$(IFS=','; echo "${NODE_IPS[*]}")
-    set_value "$NODE_CONF" "NODE_IPs" "$NODE_IPS_STR"
+    set_conf_value "NODE_IPs" "$NODE_IPS_STR"
 fi
 
 echo "✓ IP addresses detected and written to node.conf"
@@ -232,6 +232,8 @@ else
     # Priority: key-based authentication
     # Root login only via key
     # Modern ciphers only
+
+    # TODO: think to make ssh options configurable via node.conf
     
     # Enable key-based authentication and disable password for root
     if ! grep -q "^PubkeyAuthentication" "$SSHD_CONFIG"; then
@@ -293,4 +295,3 @@ echo ""
 echo "✓ Server configuration completed"
 
 exit 0
-

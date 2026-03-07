@@ -19,12 +19,10 @@ echo "=== Podman Installation ==="
 echo ""
 
 # Step 1: Check if PODMAN_BIN is already configured
-if [[ -f "$NODE_CONF" ]]; then
-    PODMAN_BIN=$(get_value "$NODE_CONF" "PODMAN_BIN" || echo "")
-    if [[ -n "$PODMAN_BIN" ]]; then
-        echo "PODMAN_BIN is already configured to use $PODMAN_BIN"
-        exit 0
-    fi
+PODMAN_BIN=$(get_conf_value "PODMAN_BIN")
+if [[ -n "$PODMAN_BIN" ]]; then
+    echo "Already configured to use $PODMAN_BIN"
+    exit 0
 fi
 
 # Step 2: Check if Podman is installed
@@ -49,7 +47,7 @@ else
             echo "Verifying Docker works..."
             if docker ps -a >/dev/null 2>&1; then
                 echo "✓ Docker is working"
-                set_value "$NODE_CONF" "PODMAN_BIN" "docker"
+                set_conf_value "PODMAN_BIN" "docker"
                 echo ""
                 echo "Docker will be used instead of Podman."
                 exit 0
@@ -280,6 +278,6 @@ else
 fi
 
 # Save to node.conf
-set_value "$NODE_CONF" "PODMAN_BIN" "podman"
+set_conf_value "PODMAN_BIN" "podman"
 echo ""
 echo "Podman installation completed successfully!"

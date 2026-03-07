@@ -46,14 +46,8 @@ fi
 echo ""
 echo "Step 2: Loading Syncthing API configuration..."
 
-if [[ -f "$NODE_CONF" ]]; then
-    SYNCTHING_API_URL=$(get_value "$NODE_CONF" "SYNCTHING_API_URL")
-    SYNCTHING_API_KEY=$(get_value "$NODE_CONF" "SYNCTHING_API_KEY")
-    NODE_NAME=$(get_value "$NODE_CONF" "NODE_NAME")
-fi
-
-SYNCTHING_API_URL="${SYNCTHING_API_URL:-http://localhost:8384}"
-SYNCTHING_API_KEY="${SYNCTHING_API_KEY:-}"
+SYNCTHING_API_URL=$(get_conf_value "SYNCTHING_API_URL" "" "http://localhost:8384")
+SYNCTHING_API_KEY=$(get_conf_value "SYNCTHING_API_KEY")
 NODE_NAME="${NODE_NAME:-localhost}"
 
 echo "API URL: $SYNCTHING_API_URL"
@@ -193,7 +187,7 @@ else
         echo "✓ API key extracted from configuration"
         
         # Update node.conf with the API key
-        set_value "$NODE_CONF" "SYNCTHING_API_KEY" "$SYNCTHING_API_KEY"
+        set_conf_value "SYNCTHING_API_KEY" "$SYNCTHING_API_KEY"
         echo "✓ API key saved to $NODE_CONF"
     fi
 fi
@@ -229,7 +223,7 @@ fi
 echo "✓ Device ID extracted: $DEVICE_ID"
 
 # Update node.conf with device ID
-set_value "$NODE_CONF" "SYNCTHING_DEVICE_ID" "$DEVICE_ID"
+set_conf_value "SYNCTHING_DEVICE_ID" "$DEVICE_ID"
 echo "✓ Device ID saved to $NODE_CONF"
 # Ask user about relay and protocol priority
 echo ""
@@ -298,6 +292,7 @@ if [[ "$RELAY_OPTION" != "3" ]]; then
     echo "Updating global options..."
     
     GLOBAL_OPTIONS_PATCH='{"minHomeDiskFree":{"value":10,"unit":"MB"},"urAccepted":-1}'
+    # TODO: disable local discovery (21027)
     
     if curl -s -X PATCH -H "X-API-Key: $SYNCTHING_API_KEY" \
         -H "Content-Type: application/json" \

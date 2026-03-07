@@ -1,0 +1,11 @@
+#NODE_NAME=dev
+NODE_IPs=
+
+NETWORK_IP4_CIDR=
+NETWORK_IP6_CIDR=
+
+SSH_USER=root
+SSH_PUB_KEY=
+SSH_PORT=22
+
+APPS=syncthing,nebula,awg,dns

@@ -21,7 +21,6 @@ echo "=========================================="
 echo "Step 0: Configuring server..."
 echo "=========================================="
 bash "$INFRA_DIR/configure-server.sh"
-echo "✓ Server configuration completed"
 echo ""
 
 # Step 1: Install Podman with Quadlet support
@@ -29,7 +28,6 @@ echo "=========================================="
 echo "Step 1: Installing Podman with Quadlet..."
 echo "=========================================="
 bash "$INFRA_DIR/podman.sh"
-echo "✓ Podman installation completed"
 echo ""
 
 # Step 2: Create dualstack Podman network
@@ -37,7 +35,6 @@ echo "=========================================="
 echo "Step 2: Creating dualstack Podman network..."
 echo "=========================================="
 bash "$INFRA_DIR/network.sh"
-echo "✓ Network creation completed"
 echo ""
 
 # Step 3: Pull configuration files via Syncthing
@@ -45,7 +42,6 @@ echo "=========================================="
 echo "Step 3: Pulling configuration files via Syncthing..."
 echo "=========================================="
 bash "$INFRA_DIR/pull-config.sh"
-echo "✓ Configuration files pulled"
 echo ""
 
 # Step 4: Install selected applications
@@ -53,7 +49,6 @@ echo "=========================================="
 echo "Step 4: Installing selected applications..."
 echo "=========================================="
 bash "$INFRA_DIR/apps.sh"
-echo "✓ Applications installation completed"
 echo ""
 
 echo "=========================================="

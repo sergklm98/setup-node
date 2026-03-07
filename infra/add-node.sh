@@ -11,11 +11,7 @@
 
 set -euo pipefail
 
-# Source common functions and variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/functions.sh"
-
-# Additional paths specific to this script
+# Paths specific to this script
 SSH_CONFIG="$HOME/.ssh/config"
 SSH_KEY_DIR="$HOME/.ssh"
 
@@ -33,8 +29,11 @@ if [[ -z "$NODE_NAME" ]]; then
     fi
 fi
 
-NODE_DIR="$NODES_DIR/$NODE_NAME"
-NODE_CONF="$NODE_DIR/node.conf"
+# Source common functions and variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/functions.sh"
+
+TARGET_NODE_CONF="$NODE_DIR/node.conf"
 
 # Check if node already exists and load config
 SSH_USER=""
@@ -76,12 +75,12 @@ if [[ -f "$SSH_CONFIG" ]]; then
 fi
 
 # Try to load from node.conf if it exists (and fill what is missing)
-if [[ -f "$NODE_CONF" ]]; then
+if [[ -f "$TARGET_NODE_CONF" ]]; then
     # Read only specific variables to avoid overwriting others
-    NODE_IPs=$(get_value "$NODE_CONF" "NODE_IPs")
+    NODE_IPs=$(get_conf_value "NODE_IPs")
     # Only set NODE_IP if it's missing
     if [[ -z "$NODE_IP" && -n "$NODE_IPs" ]]; then
-        NODE_IP="${NODE_IPs%% *}"
+        NODE_IP="${NODE_IPs%%,*}"
     fi
     echo "Node '$NODE_NAME' already exists."
     if [[ -n "$NODE_IP" ]] || [[ -n "$SSH_USER" ]] || [[ -n "$SSH_PORT" ]]; then
@@ -412,11 +411,10 @@ echo ""
 echo "Step 6: Creating Syncthing sync folder..."
 
 # Load Syncthing API configuration from creds/node.conf
-ROOT_NODE_CONF="$REPO_ROOT/creds/node.conf"
-if [[ -f "$ROOT_NODE_CONF" ]]; then
+if [[ -f "$NODE_CONF" ]]; then
     # Read only specific variables to avoid overwriting others
-    SYNCTHING_API_URL=$(get_value "$ROOT_NODE_CONF" "SYNCTHING_API_URL")
-    SYNCTHING_API_KEY=$(get_value "$ROOT_NODE_CONF" "SYNCTHING_API_KEY")
+    SYNCTHING_API_URL=$(get_value "$NODE_CONF" "SYNCTHING_API_URL")
+    SYNCTHING_API_KEY=$(get_value "$NODE_CONF" "SYNCTHING_API_KEY")
 fi
 
 SYNCTHING_API_URL="${SYNCTHING_API_URL:-http://localhost:8384}"
@@ -427,12 +425,12 @@ if [[ -z "$SYNCTHING_API_KEY" ]]; then
     echo "Skipping Syncthing folder creation (no API key configured)"
 else
     FOLDER_LABEL="setup-node-$NODE_NAME"
-    FOLDER_PATH="$NODES_DIR/$NODE_NAME"
+    FOLDER_PATH="$NODE_DIR"
     
     FOLDER_ID=""
     
     # First, check if folder ID from config exists in Syncthing (direct check)
-    CONFIG_FOLDER_ID=$(get_value "$NODE_CONF" "SYNCTHING_FOLDER_ID")
+    CONFIG_FOLDER_ID=$(get_conf_value "SYNCTHING_FOLDER_ID")
     if [[ -n "$CONFIG_FOLDER_ID" ]]; then
         # Check if this ID exists in Syncthing by direct GET request
         FOLDER_CHECK=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X GET -H "X-API-Key: $SYNCTHING_API_KEY" "$SYNCTHING_API_URL/rest/config/folders/$CONFIG_FOLDER_ID" 2>/dev/null)
@@ -456,19 +454,8 @@ else
         fi
     fi
     
-    if [[ -n "$FOLDER_ID" ]]; then
-        echo "✓ Syncthing folder already exists (Label: $FOLDER_LABEL, ID: $FOLDER_ID)"
-        # Update node.conf with folder ID
-        set_value "$NODE_CONF" "SYNCTHING_FOLDER_ID" "$FOLDER_ID"
-        
-        # Read SYNCTHING_DEVICE_ID from creds/node.conf and set as SYNCTHING_TARGET_DEVICE_ID
-        HOST_DEVICE_ID=$(get_value "$ROOT_NODE_CONF" "SYNCTHING_DEVICE_ID")
-        if [[ -n "$HOST_DEVICE_ID" ]]; then
-            set_value "$NODE_CONF" "SYNCTHING_TARGET_DEVICE_ID" "$HOST_DEVICE_ID"
-        else
-            echo "Note: SYNCTHING_DEVICE_ID is not configured in creds/node.conf, skipping SYNCTHING_TARGET_DEVICE_ID"
-        fi
-    else
+    # not found by ID or label, creating new folder
+    if [[ -z "$FOLDER_ID" ]]; then
         # Generate folder ID from folder path (deterministic)
         # Use SHA256 hash of the path, truncated to 8 characters
         FOLDER_ID=$(echo -n "$FOLDER_LABEL" | sha256sum | cut -c1-8 | tr '[:lower:]' '[:upper:]')
@@ -501,24 +488,27 @@ EOF
         
         HTTP_CODE=$(echo "$CREATE_RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
         CREATE_RESPONSE_BODY=$(echo "$CREATE_RESPONSE" | grep -v "HTTP_CODE:")
-        
-        if [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "201" ]]; then
-            echo "✓ Syncthing folder created successfully (Label: $FOLDER_LABEL, ID: $FOLDER_ID)"
-            
-            # Update node.conf with folder ID
-            set_value "$NODE_CONF" "SYNCTHING_FOLDER_ID" "$FOLDER_ID"
-            
-            # Read SYNCTHING_DEVICE_ID from creds/node.conf and set as SYNCTHING_TARGET_DEVICE_ID
-            TARGET_DEVICE_ID=$(get_value "$ROOT_NODE_CONF" "SYNCTHING_DEVICE_ID")
-            if [[ -n "$TARGET_DEVICE_ID" ]]; then
-                set_value "$NODE_CONF" "SYNCTHING_TARGET_DEVICE_ID" "$TARGET_DEVICE_ID"
-            fi
-            
-        else
+
+        if [[ "$HTTP_CODE" != "200" ]] && [[ "$HTTP_CODE" != "201" ]]; then
             echo "Error: Failed to create Syncthing folder via API"
             echo "HTTP Code: ${HTTP_CODE:-unknown}"
             echo "Response: $CREATE_RESPONSE_BODY"
+            exit 1
         fi
+        echo "✓ Syncthing folder created successfully (Label: $FOLDER_LABEL, ID: $FOLDER_ID)"
+    else
+        echo "✓ Syncthing folder already exists (Label: $FOLDER_LABEL, ID: $FOLDER_ID)"
+    fi
+
+    # Update node.conf with folder ID
+    set_conf_value "SYNCTHING_FOLDER_ID" "$FOLDER_ID"
+
+    # Read SYNCTHING_DEVICE_ID from creds/node.conf and set as SYNCTHING_TARGET_DEVICE_ID
+    HOST_DEVICE_ID=$(get_value "$NODE_CONF" "SYNCTHING_DEVICE_ID")
+    if [[ -n "$HOST_DEVICE_ID" ]]; then
+        set_conf_value "SYNCTHING_TARGET_DEVICE_ID" "$HOST_DEVICE_ID"
+    else
+        echo "Note: SYNCTHING_DEVICE_ID is not configured in creds/node.conf, skipping SYNCTHING_TARGET_DEVICE_ID"
     fi
 fi
 

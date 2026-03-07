@@ -1,2 +1,1 @@
-creds/*
-!creds/node-template.conf
+/creds

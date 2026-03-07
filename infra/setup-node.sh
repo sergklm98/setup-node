@@ -9,9 +9,8 @@
 
 set -euo pipefail
 
-# Source common functions and variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/functions.sh"
+NODES_DIR="$(cd "$SCRIPT_DIR/../creds/nodes" && pwd)"
 
 # Get node name from argument or prompt
 NODE_NAME="${1:-}"
@@ -22,10 +21,13 @@ if [[ -z "$NODE_NAME" ]]; then
     read -p "Enter node name: " NODE_NAME
 fi
 
+# Source common functions and variables
+source "$SCRIPT_DIR/functions.sh"
+
 # Load node configuration
-NODE_CONF="$NODES_DIR/$NODE_NAME/node.conf"
-if [[ ! -f "$NODE_CONF" ]]; then
-    echo "Error: Node configuration file not found: $NODE_CONF"
+TARGET_NODE_CONF="$NODE_DIR/node.conf"
+if [[ ! -f "$TARGET_NODE_CONF" ]]; then
+    echo "Error: Node configuration file not found: $TARGET_NODE_CONF"
     exit 1
 fi
 
@@ -72,9 +74,10 @@ EOF
 # Step 3: Copy node config to server
 echo ""
 echo "Step 3: Copying node configuration to server..."
+# TODO: rewrite: get local file hash, and run script on remote - check if file exists in creds or nodes/<node> and compare hash. if matches return 0, else return 1 or 2 to replace global or specific node config. And use return code to update only if required.
 # Copy node.conf to creds/node.conf on target machine
 # Use $HOME instead of ~ for proper expansion in scp
-scp "$NODE_CONF" "$NODE_NAME:~/setup-node/creds/node.conf"
+scp "$TARGET_NODE_CONF" "$NODE_NAME:~/setup-node/creds/node.conf"
 echo "✓ Copied node configuration to creds/node.conf"
 
 # Step 4: Trigger bootstrap.sh

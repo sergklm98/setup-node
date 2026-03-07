@@ -20,7 +20,7 @@ source "$SCRIPT_DIR/functions.sh"
 # Function to get PODMAN_BIN from config or default to podman
 get_podman_bin() {
     if [[ -f "$NODE_CONF" ]]; then
-        local podman_bin=$(get_value "$NODE_CONF" "PODMAN_BIN")
+        local podman_bin=$(get_conf_value "PODMAN_BIN")
         if [[ -n "$podman_bin" ]]; then
             echo "$podman_bin"
             return
@@ -57,8 +57,8 @@ if [[ ! -f "$NODE_CONF" ]]; then
     exit 1
 fi
 
-NETWORK_IP4_CIDR=$(get_value "$NODE_CONF" "NETWORK_IP4_CIDR")
-NETWORK_IP6_CIDR=$(get_value "$NODE_CONF" "NETWORK_IP6_CIDR")
+NETWORK_IP4_CIDR=$(get_conf_value "NETWORK_IP4_CIDR")
+NETWORK_IP6_CIDR=$(get_conf_value "NETWORK_IP6_CIDR")
 
 if [[ -z "$NETWORK_IP4_CIDR" ]]; then
     echo "Error: NETWORK_IP4_CIDR is not set in $NODE_CONF"
