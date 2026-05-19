@@ -28,7 +28,7 @@ What already exists and should be preserved:
 - node onboarding via add-node script,
 - remote deployment via setup-node script,
 - dualstack podman network bootstrap,
-- per-node and global config fallback helpers.
+- per-node config fallback helpers.
 
 Main gaps to close:
 - app deployment contract is not implemented end-to-end,
@@ -59,7 +59,7 @@ Main gaps to close:
   - main dualstack podman network managed by quadlet.
 - Config layer:
   - node config source in repository,
-  - local fallback order: app config -> node config -> global config.
+  - local fallback order: app config -> node config -> app defaults.
 - App layer:
   - each app provides a minimal deployment interface,
   - apps are enabled by node config only.
@@ -108,7 +108,7 @@ Target structure additions (non-breaking):
 - docs/
   - final-architecture-plan.md
   - runbook.md
-  - app-contract.md
+  - app-deployment-design.md
 - tests/
   - smoke/
   - fixtures/
@@ -239,11 +239,13 @@ Done when:
 Deliverables:
 - config validator for required keys and formats,
 - shell checks and formatting checks,
-- smoke test script for local dry-run and remote apply.
+- smoke test script for local dry-run and remote apply,
+- integration test harness using a temporary Docker container with sshd and SSH-to-localhost flow,
+- GitHub Actions workflow for automated test execution (Docker-based jobs).
 
 Done when:
 - invalid configs fail fast before remote actions,
-- CI or local check command validates shell scripts and config,
+- CI or local check command validates shell scripts, config, and SSH-based integration flow,
 - operator can run one verification command after deployment.
 
 ## Phase 4: Operational Readiness

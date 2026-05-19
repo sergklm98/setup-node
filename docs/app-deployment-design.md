@@ -85,8 +85,8 @@ Meaning:
 
 ## creds Directory and Git Policy
 
-- Entire creds/ directory is gitignored in normal workflow.
-- Only selected example files are committed to git (for documentation and onboarding).
+- creds/ is gitignored by default in normal workflow.
+- Only selected example files are committed via explicit .gitignore exceptions (for documentation and onboarding).
 - Real node-specific credentials and runtime configuration remain local/synced, not versioned in public git.
 
 ## Non-Goals (current phase)
