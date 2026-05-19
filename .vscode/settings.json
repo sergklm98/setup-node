@@ -1,0 +1,9 @@
+{
+  "chat.mcp.serverSampling": {
+    "setup-node/.vscode/mcp.json: memory-bank": {
+      "allowedModels": [
+        "copilot/auto"
+      ]
+    }
+  }
+}

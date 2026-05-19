@@ -3,7 +3,6 @@
 		"memory-bank": {
 			"type": "stdio",
 			"command": "npx",
-			"envFile": "${workspaceFolder}/.vscode/mcp-env",
 			"args": [
 				"-y",
 				"@allpepper/memory-bank-mcp@latest"
