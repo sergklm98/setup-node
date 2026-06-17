@@ -146,6 +146,9 @@ Idempotency requirement:
 
 - reads APPS list from config,
 - for each enabled app: runs apps/<app-name>/configure.sh,
+- may pass extra args from apps.sh to configure.sh (format TBD),
+- configure.sh may read creds/current/node.conf and creds/current/<app>.conf,
+- configure.sh performs desired-state detect/apply steps for its app,
 - each configure.sh is responsible for its own idempotency.
 
 Idempotency requirement:

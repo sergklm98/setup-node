@@ -28,12 +28,19 @@ Responsibilities:
 - Can include application-specific pre-configuration logic.
 - Can include application-specific post-configuration logic.
 
+Input contract:
+
+- configure.sh is called by apps.sh for every app listed in APPS.
+- Caller may pass extra args to configure.sh (argument format is intentionally not fixed yet and will be finalized during implementation).
+- configure.sh may read creds/current/node.conf and creds/current/<app>.conf to resolve desired state for that app.
+
 Behavior rules:
 
 - Must be idempotent.
 - Must detect current state before applying changes.
 - Must log clear detect/apply/no-op/fail steps.
 - Must exit non-zero on unrecoverable error.
+- Must perform detect/apply logic to converge current state to desired state.
 
 ### defaults.env
 
@@ -82,6 +89,18 @@ Meaning:
 - apps.sh reads APPS list and calls apps/<app-name>/configure.sh for each enabled app.
 - apps not listed in APPS are skipped.
 - Each configure.sh handles its own idempotent convergence.
+- apps.sh may pass extra args to configure.sh (format TBD).
+
+## Shared Helper Functions (infra/functions.sh)
+
+infra/functions.sh should provide a template rendering helper with this contract:
+
+- input: template text from stdin,
+- behavior: substitutes variables and variable blocks,
+- output: rendered text to stdout,
+- diagnostics: errors and debug logs to stderr.
+
+configure.sh scripts may use this helper to generate arbitrary files from templates.
 
 ## creds Directory and Git Policy
 
